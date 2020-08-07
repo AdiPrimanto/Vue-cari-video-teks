@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue JS</title>
+    <!-- CSS only -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.1/css/bootstrap.min.css" integrity="sha384-VCmXjywReHh4PwowAiWNagnWcLhlEJLA5buUprzK8rxFgeH0kww/aWY76TfkUoSX" crossorigin="anonymous">
+    <!-- <style>
+        body{
+            background: linear-gradient(to right, #d3cce3, #e9e4f0);
+        }
+    </style> -->
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light" style="background: linear-gradient(to right, #cb356b, #bd3f32);">
+        <h3 class="navbar-brand" >Adi Primanto</h3>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+              <h4 class="nav-link">Acesome Cari Teks Video</h4>
+            </li>
+          </ul>
+        </div>
+    </nav>
+
+    <div id="app" class="container">
+        <!-- Content here -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="input-group input-group-sm mt-5 mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="inputGroup-sizing-sm">url</span>
+                    </div>
+                    <input type="text" class="form-control" v-model="url">
+                </div>
+
+                <!-- <input class="url" type="text" v-model="url"> -->
+        
+                <div class="input-group mt-3 mb-3">
+                    <input type="text" class="form-control" placeholder="Tulis Kata Kunci" v-model="kataKunci">
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="button" id="button-addon2" @click="bersihkan">Bersihkan</button>
+                    </div>
+                </div>
+
+                <center class="mt-4">
+                    <button @click="ketikaPertamaDiKlik" type="button" class="btn btn-success pertama" :disabled="!paginasi.first">First</button>
+                    <button @click="ketikaSebelumnyaDiKlik" type="button" class="btn btn-success sebelumnya" :disabled="!paginasi.prev">Prev</button>
+                    <button @click="ketikaSelanjutnyaDiKlik" type="button" class="btn btn-success selanjutnya" :disabled="!paginasi.next">Next</button>
+                    <button @click="ketikaTerakhirDiKlik" type="button" class="btn btn-success terakhir" :disabled="!paginasi.last">Last</button>
+                </center>
+
+                <center class="mt-3">
+                    <button type="button" class="btn btn-warning">
+                        Menampilkan halaman ke <span class="badge badge-light">{{ paginasi.page }}</span>
+                    </button>
+
+                    <button type="button" class="btn btn-info">
+                        dari <span class="badge badge-light">{{ paginasi.total }}</span> total records
+                    </button>
+                </center>
+            </div>
+            <div class="col-md-6">
+                <div class="card mt-5">
+                    <div class="card-header">
+                        Hasil Teks Video
+                      </div>
+                    <div class="card-body">
+                      <ul class="list-group daftar">
+                          <li class="list-group-item" v-for="(hasil, indeks) in daftarHasil" :key="indeks">
+                              <span v-html="hasil.text"></span>
+                              <a :href="url + '&t=' + hasil.start + 's'" target="_blank">Youtube</a>
+                          </li>
+                      </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+        <div class="card-body">
+            <pre>{{ jadikanStringPaginasi }}</pre>
+        </div>
+        </div>
+
+        <div class="card mt-4 mb-5">
+        <div class="card-body">
+            <pre>{{ jadikanStringDaftarHasil }}</pre>
+        </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.0/dist/vue.js"></script>
+    <script src="index.js"></script>
+
+    <script>
+        new Vue({
+            el: "#app",
+            data: {
+                url: 'https://www.youtube.com/watch?v=klnvttPfOUM',
+                kataKunci: '',
+                daftarHasil: [],
+                paginasi: {
+                    // paginasi berupa object
+                    first: null,
+                    last: null,
+                    prev: null,
+                    next: null,
+                    total: 0,
+                    page: null
+                }
+            },
+            computed: {
+                jadikanStringPaginasi() {
+                    return JSON.stringify(this.paginasi, null, 2)
+                },
+                jadikanStringDaftarHasil() {
+                    return JSON.stringify(this.daftarHasil, null, 2)
+                }
+            },
+            watch: {
+                // kataKunci(kataKunci){
+                //     console.log("coba " + kataKunci);
+                // }
+                kataKunci: pDebounce(async function tanganiKataKunci(kataKunci) {
+                    if (kataKunci && kataKunci.length >= 3) {
+                    await this.cari(kataKunci, this.url)
+                    } else {
+                    this.bersihkanHasilDanPaginasi()
+                    }
+                }, 250)
+            },
+            methods: {
+                async cari(kataKunci, url, paginasi){
+                    let urlApi = `https://cari-teks-video-api.vercel.app/api/search?q=${kataKunci}&url=${encodeURIComponent(url)}`
+                    if(paginasi){
+                        urlApi = paginasi
+                    }
+                    //karena mengambul data dr internet jd hrs berupa promise
+                    const respon = await fetch(urlApi) .then(_respon => {
+                        if(_respon.ok){
+                            return _respon.json()
+                        }
+                        return []
+                    })
+                    // console.log(respon);
+                    this.daftarHasil = respon.data
+                    this.paginasi.first = respon.first
+                    this.paginasi.last = respon.last
+                    this.paginasi.prev = respon.prev
+                    this.paginasi.next = respon.next
+                    this.paginasi.total = respon.total
+                    this.paginasi.page = respon.page
+                },
+                bersihkan() {
+                    this.kataKunci = ''
+                    this.bersihkanHasilDanPaginasi()
+                },
+                bersihkanHasilDanPaginasi() {
+                    this.daftarHasil = []
+                    this.paginasi = {
+                        first: null,
+                        last: null,
+                        prev: null,
+                        next: null,
+                        total: 0,
+                        page: null
+                    }
+                },
+                ketikaPertamaDiKlik(){
+                    this.cari(this.kataKunci, this.url, this.paginasi.first)
+                },
+                ketikaSebelumnyaDiKlik(){
+                    this.cari(this.kataKunci, this.url, this.paginasi.prev)
+                },
+                ketikaSelanjutnyaDiKlik(){
+                    this.cari(this.kataKunci, this.url, this.paginasi.next)
+                },
+                ketikaTerakhirDiKlik(){
+                    this.cari(this.kataKunci, this.url, this.paginasi.last)
+                },
+            },
+        })
+    </script>
+
+    <!-- JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.1/js/bootstrap.min.js" integrity="sha384-XEerZL0cuoUbHE4nZReLT7nx9gQrQreJekYhJD9WNWhH8nEW+0c5qq7aIo2Wl30J" crossorigin="anonymous"></script>
+</body>
+</html>
